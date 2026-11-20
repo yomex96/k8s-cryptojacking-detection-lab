@@ -1,0 +1,34 @@
+# Custom Falco rules for the cryptojacking lab.
+# Installed through the Helm chart's customRules value (see README).
+customRules:
+  cryptojack-rules.yaml: |-
+    - list: mining_pool_ports
+      items: [3333, 4444, 5555, 7777, 14444, 14433, 45700]
+
+    - macro: outbound_to_mining_port
+      condition: >
+        evt.type in (connect) and evt.dir = < and fd.typechar = 4 and fd.sport in (mining_pool_ports)
+
+    - rule: Outbound Connection to Common Mining Pool Port
+      desc: >
+        A container opened a TCP connection to a port commonly used by
+        cryptocurrency mining pools (Stratum). Possible cryptojacking.
+      condition: outbound_to_mining_port and container.id != host
+      output: >
+        Possible cryptojacking: outbound connection to mining-pool port
+        (pod=%k8s.pod.name ns=%k8s.ns.name container=%container.name
+        process=%proc.cmdline connection=%fd.name)
+      priority: WARNING
+      tags: [network, cryptojacking, mitre_impact, T1496]
+
+    - rule: Stratum Protocol Login Pattern
+      desc: A process sent data that looks like a Stratum mining login.
+      condition: >
+        evt.type in (write, sendto, sendmsg) and evt.dir = < and fd.typechar = 4
+        and evt.buffer contains '"method"' and evt.buffer contains '"login"'
+        and container.id != host
+      output: >
+        Stratum-like mining login sent (pod=%k8s.pod.name ns=%k8s.ns.name
+        process=%proc.cmdline connection=%fd.name)
+      priority: CRITICAL
+      tags: [network, cryptojacking, T1496]

@@ -1,0 +1,25 @@
+# Alert on sustained high CPU in any container (requires kube-prometheus-stack).
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: cryptojacking-cpu
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack
+spec:
+  groups:
+    - name: cryptojacking.rules
+      rules:
+        - alert: SustainedHighContainerCPU
+          expr: |
+            sum by (namespace, pod, container) (
+              rate(container_cpu_usage_seconds_total{container!="", container!="POD"}[2m])
+            ) > 0.8
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Sustained high CPU in {{ $labels.namespace }}/{{ $labels.pod }}"
+            description: >
+              Container {{ $labels.container }} has used more than 0.8 CPU cores
+              for 2 minutes. Investigate for cryptojacking.

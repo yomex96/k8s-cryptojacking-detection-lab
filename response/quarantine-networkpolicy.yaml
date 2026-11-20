@@ -1,0 +1,14 @@
+# Containment step 1: cut all traffic to and from the suspicious pod
+# while it is preserved for investigation.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: quarantine-report-worker
+  namespace: cryptojack-lab
+spec:
+  podSelector:
+    matchLabels:
+      app: report-worker
+  policyTypes: [Ingress, Egress]
+  ingress: []
+  egress: []

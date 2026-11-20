@@ -1,0 +1,60 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cryptojack-lab
+---
+# Harmless fake mining pool (echo service on port 3333)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fake-pool
+  namespace: cryptojack-lab
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: fake-pool }
+  template:
+    metadata:
+      labels: { app: fake-pool }
+    spec:
+      containers:
+        - name: pool
+          image: miner-sim:lab
+          imagePullPolicy: Never
+          command: ["python", "fake_pool.py"]
+          ports: [{ containerPort: 3333 }]
+          resources:
+            limits: { cpu: "100m", memory: "64Mi" }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fake-pool
+  namespace: cryptojack-lab
+spec:
+  selector: { app: fake-pool }
+  ports: [{ port: 3333, targetPort: 3333 }]
+---
+# The "compromised" workload, disguised with an innocent-looking name
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: report-worker
+  namespace: cryptojack-lab
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: report-worker }
+  template:
+    metadata:
+      labels: { app: report-worker }
+    spec:
+      containers:
+        - name: worker
+          image: miner-sim:lab
+          imagePullPolicy: Never
+          env:
+            - { name: WORKERS, value: "2" }
+            - { name: POOL_HOST, value: "fake-pool.cryptojack-lab.svc.cluster.local" }
+          resources:
+            limits: { cpu: "1", memory: "128Mi" }
